@@ -1004,6 +1004,33 @@
             return;
         }
 
+        let finalChannelId = channelIdQuery;
+        // If channelId is provided and does not start with 'UC', search for the channel ID first.
+        if (channelIdQuery && !channelIdQuery.startsWith('UC')) {
+            statusEl.textContent = `チャンネル名「${channelIdQuery}」からチャンネルIDを検索しています...`;
+            const channelSearchParams = new URLSearchParams({
+                part: 'snippet',
+                q: channelIdQuery,
+                type: 'channel',
+                maxResults: '1',
+                key: YOUTUBE_API_KEY
+            });
+            const channelSearchUrl = `https://www.googleapis.com/youtube/v3/search?${channelSearchParams.toString()}`;
+            const channelRes = await fetch(channelSearchUrl);
+            if (!channelRes.ok) {
+                throw await createApiError(channelRes, 'チャンネル情報の検索に失敗しました。');
+            }
+            const channelData = await channelRes.json();
+
+            if (channelData.items && channelData.items.length > 0) {
+                finalChannelId = channelData.items[0].id.channelId;
+                channelIdInput.value = finalChannelId; // Update input with the found ID
+                statusEl.textContent = `チャンネルIDが見つかりました。動画を検索します...`;
+            } else {
+                throw new Error(`チャンネル「${channelIdQuery}」が見つかりませんでした。`);
+            }
+        }
+
         const params = new URLSearchParams({
             part: "snippet",
             type: "video",
@@ -1014,7 +1041,7 @@
             key: YOUTUBE_API_KEY
         });
 
-        if (channelIdQuery) params.set('channelId', channelIdQuery);
+        if (finalChannelId) params.set('channelId', finalChannelId);
         if (searchQuery) params.set('q', searchQuery);
         if (recentOnly.checked) {
             const date = new Date();
